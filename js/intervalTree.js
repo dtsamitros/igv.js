@@ -32,8 +32,6 @@
  *   Search       findOverlapping
  */
 
-import {getBrowser} from "./igv-create.js";
-
 var BLACK = 1;
 var RED = 2;
 
@@ -311,8 +309,7 @@ Interval.prototype.overlaps = function (other) {
     try {
         return (this.low <= other.high && other.low <= this.high);
     } catch (e) {
-        //alert(e);
-        getBrowser().presentAlert(e, undefined);
+        alert(e);
     }
 }
 

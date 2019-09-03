@@ -1,1 +1,0 @@
-To run the examples you must first run "grunt" from the project root to build the dist directory.

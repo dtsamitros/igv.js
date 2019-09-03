@@ -29,7 +29,6 @@ import {unbgzf, bgzBlockSize} from './bam/bgzf.js';
 import Zlib from "./vendor/zlib_and_gzip.js";
 import {getFilename, isFilePath} from './util/fileUtils.js'
 import {parseUri, decodeDataURI} from "./util/uriUtils.js"
-import {getBrowser} from "./igv-create.js";
 
 
 var NONE = 0;
@@ -489,7 +488,7 @@ async function getGoogleAccessToken() {
 
     const authInstance = gapi.auth2.getAuthInstance();
     if (!authInstance) {
-        getBrowser().presentAlert("Authorization is required, but Google oAuth has not been initalized.  Contact your site administrator for assistance.")
+        alert("Authorization is required, but Google oAuth has not been initalized.  Contact your site administrator for assistance.")
         return undefined;
     }
 
@@ -498,6 +497,9 @@ async function getGoogleAccessToken() {
     options.setPrompt('select_account');
     options.setScope(scope);
     oauthPromise = new Promise(function (resolve, reject) {
+        alert('Google Login required');
+        return;
+
         const browser = getBrowser();
         browser.presentMessageWithCallback("Google Login required", function () {
 

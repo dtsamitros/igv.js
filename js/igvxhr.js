@@ -25,10 +25,11 @@
 
 import oauth from "./oauth.js";
 import google from "./google/googleUtils.js";
-import {unbgzf, bgzBlockSize} from './bam/bgzf.js';
+import {unbgzf} from './bam/bgzf.js';
 import Zlib from "./vendor/zlib_and_gzip.js";
-import {getFilename, isFilePath} from './util/fileUtils.js'
-import {parseUri, decodeDataURI} from "./util/uriUtils.js"
+import {getFilename} from './util/fileUtils.js'
+import {decodeDataURI, parseUri} from "./util/uriUtils.js"
+import Alert from "./ui/alert.js"
 
 
 var NONE = 0;
@@ -130,7 +131,7 @@ const igvxhr = {
 
             async function getLoadPromise(url, options) {
 
-                return new Promise(async function (fullfill, reject) {
+                return new Promise(function (fullfill, reject) {
 
                     // Various Google tansformations
                     if (google.isGoogleURL(url)) {
@@ -151,7 +152,7 @@ const igvxhr = {
                     }
                     const range = options.range;
                     const isChrome = navigator.userAgent.indexOf('Chrome') > -1;
-                    const isSafari = navigator.vendor.indexOf("Apple") == 0 && /\sSafari\//.test(navigator.userAgent);
+                    const isSafari = navigator.vendor.indexOf("Apple") === 0 && /\sSafari\//.test(navigator.userAgent);
 
                     if (range && isChrome && !isAmazonV4Signed(url)) {
                         // Hack to prevent caching for byte-ranges. Attempt to fix net:err-cache errors in Chrome
@@ -196,8 +197,8 @@ const igvxhr = {
 
                     xhr.onload = function (event) {
                         // when the url points to a local file, the status is 0 but that is no error
-                        if (xhr.status == 0 || (xhr.status >= 200 && xhr.status <= 300)) {
-                            if (range && xhr.status != 206 && range.start !== 0) {
+                        if (xhr.status === 0 || (xhr.status >= 200 && xhr.status <= 300)) {
+                            if (range && xhr.status !== 206 && range.start !== 0) {
                                 // For small files a range starting at 0 can return the whole file => 200
                                 handleError("ERROR: range-byte header was ignored for url: " + url);
                             } else {
@@ -273,7 +274,7 @@ const igvxhr = {
                     }
                 });
             }
-        };
+        }
     },
 
     loadArrayBuffer: function (url, options) {
@@ -292,7 +293,7 @@ const igvxhr = {
 
         var method = options.method || (options.sendData ? "POST" : "GET");
 
-        if (method == "POST") options.contentType = "application/json";
+        if (method === "POST") options.contentType = "application/json";
 
         return igvxhr.load(url, options)
 
@@ -350,12 +351,16 @@ function loadFileSlice(localfile, options) {
 }
 
 function loadStringFromFile(localfile, options) {
-    return new Promise(function (fullfill, reject) {
+
+    options = options || {};
+
+    let blob = options.range ? localfile.slice(options.range.start, options.range.start + options.range.size) : localfile;
+
+    return new Promise(function (resolve, reject) {
 
         var fileReader = new FileReader();
-
         var compression = NONE;
-        if (options.bgz) {
+        if (options.bgz || localfile.name.endsWith(".bgz")) {
             compression = BGZF;
         } else if (localfile.name.endsWith(".gz")) {
             compression = GZIP;
@@ -363,21 +368,21 @@ function loadStringFromFile(localfile, options) {
 
         fileReader.onload = function (e) {
             if (compression === NONE) {
-                return fullfill(fileReader.result);
+                return resolve(fileReader.result);
             } else {
-                return fullfill(arrayBufferToString(fileReader.result, compression));
+                return resolve(arrayBufferToString(fileReader.result, compression));
             }
         };
 
         fileReader.onerror = function (e) {
-            console.log("reject uploading local file " + localfile.name);
-            reject(null, fileReader);
+            const error = fileReader.error;
+            reject(error + " " + localfile.name, fileReader);
         };
 
         if (compression === NONE) {
-            fileReader.readAsText(localfile);
+            fileReader.readAsText(blob);
         } else {
-            fileReader.readAsArrayBuffer(localfile);
+            fileReader.readAsArrayBuffer(blob);
         }
     });
 
@@ -467,7 +472,7 @@ function arrayBufferToString(arraybuffer, compression) {
     } else {
         return decodeUTF8(plain);
     }
-};
+}
 
 function isGoogleDrive(url) {
     return url.includes("drive.google.com") || url.includes("www.googleapis.com/drive");
@@ -488,7 +493,7 @@ async function getGoogleAccessToken() {
 
     const authInstance = gapi.auth2.getAuthInstance();
     if (!authInstance) {
-        alert("Authorization is required, but Google oAuth has not been initalized.  Contact your site administrator for assistance.")
+        Alert.presentAlert("Authorization is required, but Google oAuth has not been initalized.  Contact your site administrator for assistance.")
         return undefined;
     }
 
@@ -497,12 +502,7 @@ async function getGoogleAccessToken() {
     options.setPrompt('select_account');
     options.setScope(scope);
     oauthPromise = new Promise(function (resolve, reject) {
-        alert('Google Login required');
-        return;
-
-        const browser = getBrowser();
-        browser.presentMessageWithCallback("Google Login required", function () {
-
+        Alert.presentMessageWithCallback("Google Login required", function () {
             gapi.auth2.getAuthInstance().signIn(options)
                 .then(function (user) {
                     const authResponse = user.getAuthResponse();
@@ -606,4 +606,4 @@ function getGlobalObject() {
     }
 }
 
-export default igvxhr;
+export default igvxhr

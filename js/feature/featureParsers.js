@@ -338,7 +338,7 @@ function parseFixedStep(line) {
 
     var tokens = line.split(/\s+/),
         cc = tokens[1].split("=")[1],
-        ss = parseInt(tokens[2].split("=")[1], 10),
+        ss = parseInt(tokens[2].split("=")[1], 10) - 1,
         step = parseInt(tokens[3].split("=")[1], 10),
         span = (tokens.length > 4) ? parseInt(tokens[4].split("=")[1], 10) : 1;
 
@@ -446,7 +446,7 @@ function parseTrackLine(line) {
     for (let str of tmp) {
         if (!str) return;
         var kv = str.split('=', 2);
-        if (kv.length == 2) {
+        if (kv.length === 2) {
             const key = kv[0].trim();
             const value = kv[1].trim();
             properties[key] = value;
@@ -797,8 +797,8 @@ function decodeBedGraph(tokens, ignore) {
     chr = tokens[0];
     start = parseInt(tokens[1]);
     end = parseInt(tokens[2]);
-
     value = parseFloat(tokens[3]);
+    const feature = {chr: chr, start: start, end: end, value: value};
 
     // Optional extra columns
     if (this.header) {
@@ -808,7 +808,7 @@ function decodeBedGraph(tokens, ignore) {
         }
     }
 
-    return {chr: chr, start: start, end: end, value: value};
+    return feature;
 }
 
 function decodeWig(tokens, wig) {
@@ -828,7 +828,7 @@ function decodeWig(tokens, wig) {
 
         if (tokens.length < 2) return null;
 
-        ss = parseInt(tokens[0], 10);
+        ss = parseInt(tokens[0], 10) - 1;
         ee = ss + wig.span;
         value = parseFloat(tokens[1]);
         return isNaN(value) ? null : {chr: wig.chrom, start: ss, end: ee, value: value};
@@ -937,7 +937,6 @@ function decodeGtexGWAS(tokens, ignore) {
         'Odds ratio or beta': tokens[6],
     }
     if (tokens.length > 6) {
-        'https://www.ncbi.nlm.nih.gov/pubmed/'
         feature['PUBMEDID'] = `<a target = "blank" href = "https://www.ncbi.nlm.nih.gov/pubmed/${tokens[7]}">${tokens[7]}</a>`
     }
     return feature
@@ -975,7 +974,7 @@ function decodeGFF(tokens, ignore) {
     var attributes = {};
     for (let kv of attributeString.split(';')) {
         const t = kv.trim().split(delim, 2)
-        if (t.length == 2) {
+        if (t.length === 2) {
             const key = t[0].trim();
             let value = t[1].trim();
 
@@ -1197,7 +1196,7 @@ function decodeAed(tokens, ignore) {
 function decodeBedpe(tokens, ignore) {
 
     if (tokens.length < 6) {
-        console.log("Skipping line: " + nextLine);
+        console.log("Skipping line: " + tokens.join(' '));
         return undefined;
     }
 
@@ -1255,7 +1254,7 @@ function decodeBedpe(tokens, ignore) {
 function decodeInteract(tokens, ignore) {
 
     if (tokens.length < 6) {
-        console.log("Skipping line: " + nextLine);
+        console.log("Skipping line: " + tokens.join(' '));
         return undefined;
     }
 
@@ -1394,9 +1393,9 @@ function decodeCustom(tokens, ignore) {
 
         format.fields.forEach(function (field, index) {
 
-            if (index != format.chr &&
-                index != format.start &&
-                index != format.end) {
+            if (index !== format.chr &&
+                index !== format.start &&
+                index !== format.end) {
 
                 feature[field] = tokens[index];
             }

@@ -43,23 +43,27 @@ function createVCFVariant(tokens) {
     variant.info = getInfoObject(tokens[7]);
     init(variant);
     return variant;
+}
 
-    function getInfoObject(infoStr) {
+function getInfoObject(infoStr) {
 
-        if (!infoStr) return undefined;
+    if (!infoStr) {
+        return undefined;
+    }
 
-        var info = {};
-        infoStr.split(';').forEach(function (elem) {
-            var element = elem.split('=');
-            info[element[0]] = element[1];
-        });
+    var info = {};
+    infoStr.split(';').forEach(function (elem) {
+        var element = elem.split('=');
+        info[element[0]] = element[1];
+    });
 
-        return info;
-    };
-
+    return info;
 }
 
 function init(variant) {
+
+    const ref = variant.referenceBases;
+    const altBases = variant.alternateBases;
 
     if (variant.info) {
         if (variant.info["VT"]) {
@@ -69,19 +73,20 @@ function init(variant) {
         } else if (variant.info["PERIOD"]) {
             variant.type = "STR";
         }
+        else {
+            variant.type = determineType(altBases);
+        }
     }
 
-    const ref = variant.referenceBases;
-    const altBases = variant.alternateBases
 
     // Check for reference block
-    if (isRef(altBases) || "." === altBases) {
-        variant.type = "REFBLOCK";
+    if (variant.type === "NONVARIANT") {
         variant.heterozygosity = 0;
         variant.start = variant.pos - 1;      // convert to 0-based coordinate convention
-        variant.end = variant.start + ref.length
+        variant.end = variant.start + ref.length  // might be overwritten by "END" attribute
+    }
 
-    } else if ("SV" === variant.type && variant.info["END"]) {
+    if (variant.info["END"]) {
         variant.start = variant.pos - 1;
         variant.end = Number.parseInt(variant.info["END"]);
 
@@ -94,8 +99,6 @@ function init(variant) {
         for (let alt of altTokens) {
 
             variant.alleles.push(alt);
-            let alleleStart
-            let alleleEnd
 
             // We don't yet handle  SV and other special alt representations
             if ("SV" !== variant.type && isKnownAlt(alt)) {
@@ -132,12 +135,11 @@ function init(variant) {
                     }
                 }
 
-                alleleStart = variant.pos + s - 1;      // -1 for zero based coordinates
-                alleleEnd = alleleStart + Math.max(1, lengthOnRef)     // insertions have zero length on ref, but we give them 1
+                const alleleStart = variant.pos + s - 1;      // -1 for zero based coordinates
+                const alleleEnd = alleleStart + Math.max(1, lengthOnRef)     // insertions have zero length on ref, but we give them 1
+                variant.start = Math.min(variant.start, alleleStart);
+                variant.end = Math.max(variant.end, alleleEnd);
             }
-
-            variant.start = Math.min(variant.start, alleleStart);
-            variant.end = Math.max(variant.end, alleleEnd);
 
         }
     }
@@ -164,9 +166,10 @@ Variant.prototype.popupData = function (genomicLocation, genomeId) {
     var self = this,
         fields, gt;
 
+    const posString = this.end === this.pos ? this.pos : `${this.pos}-${this.end}`;
     fields = [
         {name: "Chr", value: this.chr},
-        {name: "Pos", value: this.pos},
+        {name: "Pos", value: posString},
         {name: "Names", value: this.names ? this.names : ""},
         {name: "Ref", value: this.referenceBases},
         {name: "Alt", value: this.alternateBases.replace("<", "&lt;")},
@@ -174,7 +177,7 @@ Variant.prototype.popupData = function (genomicLocation, genomeId) {
         {name: "Filter", value: this.filter}
     ];
 
-    if (this.referenceBases.length === 1 && !isRef(this.alternateBases)) {
+    if (this.referenceBases.length === 1 && !determineType(this.alternateBases)) {
         let ref = this.referenceBases;
         if (ref.length === 1) {
             let altArray = this.alternateBases.split(",");
@@ -217,16 +220,29 @@ Variant.prototype.popupData = function (genomicLocation, genomeId) {
 };
 
 Variant.prototype.isRefBlock = function () {
-    return "REFBLOCK" === this.type;
+    return "NONVARIANT" === this.type;
 }
 
-function isRef(altAlleles) {
-
-    return !altAlleles ||
-        altAlleles.trim().length === 0 ||
+function determineType(altAlleles) {
+    if (altAlleles === undefined) {
+        return "UNKNOWN";
+    } else if (altAlleles.trim().length === 0 ||
         altAlleles === "<NON_REF>" ||
-        altAlleles === "<*>";
-
+        altAlleles === "<*>") {
+        return "NONVARIANT";
+    } else {
+        const alleles = altAlleles.split(",");
+        const types = alleles.map(function (a) {
+            return "<NON_REF>" === a ? "NONVARIANT" : "OTHER";
+        });
+        let type = types[0];
+        for(let t of types) {
+            if(t !== type) {
+                return "MIXED";
+            }
+        }
+        return type;
+    }
 }
 
 function arrayToString(value, delim) {

@@ -59,6 +59,7 @@ const FeatureSource = function (config, genome) {
 
     if (config.features && Array.isArray(config.features)) {
         let features = config.features;
+        packFeatures(features);
         if (config.mappings) {
             mapProperties(features, config.mappings)
         }
@@ -84,10 +85,10 @@ const FeatureSource = function (config, genome) {
         this.queryable = false;
     } else {
         this.reader = new FeatureFileReader(config, genome);
-        if (config.queryable != undefined) {
+        if (config.queryable !== undefined) {
             this.queryable = config.queryable
         } else if (queryableFormats.has(config.format)) {
-            this.queryable = queryableFormats.has(config.format) || reader.indexed;
+            this.queryable = queryableFormats.has(config.format) || this.reader.indexed;
         } else {
             // Leav undefined -- will defer until we know if reader has an index
         }
@@ -159,7 +160,7 @@ FeatureSource.prototype.getFeatures = async function (chr, bpStart, bpEnd, bpPer
         if (isQueryable) {   // queryable sources don't support whole genome view
             return [];
         } else {
-            if (featureCache.count > 100000) {
+            if (featureCache.count > 500000) {
                 this.supportsWG = false;
                 return [];
             } else {
@@ -185,14 +186,16 @@ FeatureSource.prototype.getFeatures = async function (chr, bpStart, bpEnd, bpPer
             // If a visibility window is defined, potentially expand query interval.
             // This can save re-queries as we zoom out.  Visibility window <= 0 is a special case
             // indicating whole chromosome should be read at once.
-            if (visibilityWindow === undefined || visibilityWindow <= 0) {
-                // Whole chromosome
-                intervalStart = 0;
-                intervalEnd = Number.MAX_VALUE;
-            } else if (visibilityWindow !== undefined && visibilityWindow > (bpEnd - bpStart)) {
-                const expansionWindow = Math.min(4.1 * (bpEnd - bpStart), visibilityWindow)
-                intervalStart = Math.max(0, (bpStart + bpEnd - expansionWindow) / 2);
-                intervalEnd = bpStart + expansionWindow;
+            if (undefined !== visibilityWindow) {
+                if (visibilityWindow <= 0) {
+                    // Whole chromosome
+                    intervalStart = 0;
+                    intervalEnd = Number.MAX_VALUE;
+                } else if (visibilityWindow > (bpEnd - bpStart)) {
+                    const expansionWindow = Math.min(4.1 * (bpEnd - bpStart), visibilityWindow)
+                    intervalStart = Math.max(0, (bpStart + bpEnd - expansionWindow) / 2);
+                    intervalEnd = bpStart + expansionWindow;
+                }
             }
             genomicInterval = new GenomicInterval(queryChr, intervalStart, intervalEnd);
 
@@ -240,12 +243,13 @@ FeatureSource.prototype.ingestFeatures = function (featureList, genomicInterval)
 
 function packFeatures(features, maxRows) {
 
+
+    maxRows = maxRows || 1000;
     if (features == null || features.length === 0) {
         return;
     }
 
     // Segregate by chromosome
-
     var chrFeatureMap = {},
         chrs = [];
     features.forEach(function (feature) {
@@ -265,7 +269,6 @@ function packFeatures(features, maxRows) {
     // Loop through chrosomosomes and pack features;
 
     chrs.forEach(function (chr) {
-
         pack(chrFeatureMap[chr], maxRows);
     });
 
@@ -280,32 +283,25 @@ function packFeatures(features, maxRows) {
         })
         rows.push(-1000);
 
-        featureList.forEach(function (feature) {
-
+        for(let feature of featureList) {
             let r = 0
             const len = Math.min(rows.length, maxRows)
             for (r = 0; r < len; r++) {
                 if (feature.start > rows[r]) {
                     feature.row = r;
                     rows[r] = feature.end;
-                    return;
+                    break;
                 }
             }
             feature.row = r;
             rows[r] = feature.end;
-
-
-        });
+        }
     }
 }
 
 // TODO -- filter by pixel size
 FeatureSource.prototype.getWGFeatures = function (allFeatures) {
 
-    if (this.wgFeatures) {
-        return this.wgFeatures;
-
-    }
     const genome = this.genome;
     const wgChromosomeNames = new Set(genome.wgChromosomeNames);
     const wgFeatures = [];
@@ -353,8 +349,6 @@ FeatureSource.prototype.getWGFeatures = function (allFeatures) {
     wgFeatures.sort(function (a, b) {
         return a.start - b.start;
     });
-
-    this.wgFeatures = wgFeatures;
 
     return wgFeatures;
 

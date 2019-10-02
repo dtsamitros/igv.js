@@ -27,11 +27,12 @@ import FeatureParser from "./featureParsers.js";
 import SegParser from "./segParser.js";
 import VcfParser from "../variant/vcfParser.js";
 import loadBamIndex from "../bam/bamIndex.js";
+import loadTribbleIndex from "./tribble.js"
 import igvxhr from "../igvxhr.js";
-import  {unbgzf, bgzBlockSize} from '../bam/bgzf.js';
+import {bgzBlockSize, unbgzf} from '../bam/bgzf.js';
 import {isFilePath} from '../util/fileUtils.js'
 import {isString} from "../util/stringUtils.js";
-import {parseUri, decodeDataURI} from "../util/uriUtils.js";
+import {decodeDataURI, parseUri} from "../util/uriUtils.js";
 import {buildOptions} from "../util/igvUtils.js";
 
 const MAX_GZIP_BLOCK_SIZE = (1 << 16);
@@ -63,7 +64,7 @@ const FeatureFileReader = function (config, genome) {
 
     this.format = this.config.format;
 
-    this.parser = this.getParser(this.format, this.config.decode);
+    this.parser = this.getParser(this.format, this.config.decode, this.config);
 };
 
 /**
@@ -99,12 +100,11 @@ FeatureFileReader.prototype.readHeader = async function () {
             header.features = features;
 
         } else {
-
-            const index = await this.getIndex()
-            if (index) {
+            let index;
+            if (this.config.indexURL || this.config.indexed) {
+                index = await this.getIndex()
 
                 // Load the file header (not HTTP header) for an indexed file.
-
                 let maxSize = "vcf" === this.config.format ? 65000 : 1000
                 if (index.tabix) {
                     const bsizeOptions = buildOptions(this.config, {
@@ -116,15 +116,10 @@ FeatureFileReader.prototype.readHeader = async function () {
                     const abuffer = await igvxhr.loadArrayBuffer(this.config.url, bsizeOptions)
                     const bsize = bgzBlockSize(abuffer)
                     maxSize = index.firstAlignmentBlock + bsize;
-                } else {
-
                 }
-
                 const options = buildOptions(this.config, {bgz: index.tabix, range: {start: 0, size: maxSize}});
-
                 const data = await igvxhr.loadString(this.config.url, options)
                 header = this.parser.parseHeader(data);
-
 
             } else {
                 // If this is a non-indexed file we will load all features in advance
@@ -132,7 +127,6 @@ FeatureFileReader.prototype.readHeader = async function () {
                 header = this.header || {};
                 header.features = features;
             }
-
 
             if (header && this.parser) {
                 this.parser.header = header;
@@ -146,11 +140,11 @@ FeatureFileReader.prototype.readHeader = async function () {
 
 };
 
-FeatureFileReader.prototype.getParser = function (format, decode) {
+FeatureFileReader.prototype.getParser = function (format, decode, config) {
 
     switch (format) {
         case "vcf":
-            return new VcfParser();
+            return new VcfParser(config);
         case "seg" :
             return new SegParser();
         default:
@@ -163,11 +157,10 @@ FeatureFileReader.prototype.getParser = function (format, decode) {
 /**
  * Return a Promise for the async loaded index
  */
-FeatureFileReader.prototype.loadIndex = function () {
+FeatureFileReader.prototype.loadIndex = async function () {
 
     let idxFile = this.config.indexURL;
-
-    if (this.filename.endsWith('.gz')) {
+    if (this.filename.endsWith('.gz') || this.filename.endsWith('.bgz')) {
 
         if (!idxFile) {
             idxFile = this.config.url + '.tbi';
@@ -204,126 +197,114 @@ FeatureFileReader.prototype.loadFeaturesWithIndex = async function (chr, start, 
     const parser = this.parser
     const tabix = this.index.tabix
     const refId = tabix ? this.index.sequenceIndexMap[chr] : chr
-    const promises = []
+    const allFeatures = [];
+    const genome = this.genome;
 
     const blocks = this.index.blocksForRange(refId, start, end);
 
     if (!blocks || blocks.length === 0) {
-        return Promise.resolve([]);
+        return [];
     } else {
 
-        blocks.forEach(function (block) {
+        for (let block of blocks) {
 
-            promises.push(new Promise(async function (fullfill, reject) {
+            const startPos = block.minv.block
+            const startOffset = block.minv.offset
+            const endOffset = block.maxv.offset
+            let endPos
 
-                const startPos = block.minv.block
-                const startOffset = block.minv.offset
-                const endOffset = block.maxv.offset
-                let endPos
-
-                if (tabix) {
-                    let lastBlockSize = 0
-                    if (endOffset > 0) {
-                        const bsizeOptions = buildOptions(config, {
-                            range: {
-                                start: block.maxv.block,
-                                size: 26
-                            }
-                        });
-                        const abuffer = await igvxhr.loadArrayBuffer(config.url, bsizeOptions)
-                        lastBlockSize = bgzBlockSize(abuffer)
-                    }
-                    endPos = block.maxv.block + lastBlockSize;
-                } else {
-                    endPos = block.maxv.block;
+            if (tabix) {
+                let lastBlockSize = 0
+                if (endOffset > 0) {
+                    const bsizeOptions = buildOptions(config, {
+                        range: {
+                            start: block.maxv.block,
+                            size: 26
+                        }
+                    });
+                    const abuffer = await igvxhr.loadArrayBuffer(config.url, bsizeOptions)
+                    lastBlockSize = bgzBlockSize(abuffer)
                 }
+                endPos = block.maxv.block + lastBlockSize;
+            } else {
+                endPos = block.maxv.block;
+            }
 
-                const options = buildOptions(config, {
-                    range: {
-                        start: startPos,
-                        size: endPos - startPos + 1
-                    }
-                });
+            const options = buildOptions(config, {
+                range: {
+                    start: startPos,
+                    size: endPos - startPos + 1
+                }
+            });
 
-                const success = function (inflated) {
-                    const slicedData = startOffset ? inflated.slice(startOffset) : inflated;
-                    const slicedFeatures = parser.parseFeatures(slicedData);
+            if (tabix) {
+                const data = await igvxhr.loadArrayBuffer(config.url, options);
+                const inflated = new Uint8Array(unbgzf(data));
+                parse(inflated);
 
-                    // Filter features not in requested range.
-                    const filteredFeatures = [];
-                    for (let f of slicedFeatures) {
-                        if (f.start > end) break;
-                        if (f.end >= start && f.start <= end) {
-                            filteredFeatures.push(f);
+            } else {
+                const inflated = igvxhr.loadString(config.url, options);
+                parse(inflated);
+            }
+
+            function parse(inflated) {
+                const slicedData = startOffset ? inflated.slice(startOffset) : inflated;
+                const slicedFeatures = parser.parseFeatures(slicedData);
+
+                // Filter features not in requested range.
+                for (let f of slicedFeatures) {
+                    if (genome.getChromosomeName(f.chr) !== chr) {
+                        if (allFeatures.length === 0) {
+                            continue;  //adjacent chr to the left
+                        } else {
+                            break; //adjacent chr to the right
                         }
                     }
-                    fullfill(filteredFeatures);
-                };
-
-                if (tabix) {
-                    igvxhr
-                        .loadArrayBuffer(config.url, options)
-                        .then(function (data) {
-                            const inflated = new Uint8Array(unbgzf(data))
-                            success(inflated)
-                        })
-                        .catch(reject);
-                } else {
-                    igvxhr
-                        .loadString(config.url, options)
-                        .then(success)
-                        .catch(reject);
+                    if (f.start > end) break;
+                    if (f.end >= start && f.start <= end) {
+                        allFeatures.push(f);
+                    }
                 }
-            }))
-        });
-
-        const featureArrays = await Promise.all(promises)
-
-        let allFeatures = featureArrays[0];
-        if (allFeatures.length > 1) {
-            allFeatures = featureArrays[0];
-            for (let i = 1; i < featureArrays.length; i++) {
-                allFeatures = allFeatures.concat(featureArrays[i]);
             }
-            allFeatures.sort(function (a, b) {
-                return a.start - b.start;
-            });
         }
-
-        return allFeatures;
     }
+
+    allFeatures.sort(function (a, b) {
+        return a.start - b.start;
+    });
+
+    return allFeatures;
 }
 
-FeatureFileReader.prototype.getIndex = function () {
 
-    var self = this;
-    if (self.index !== undefined || self.indexed === false) {
-        return Promise.resolve(self.index);
+FeatureFileReader.prototype.getIndex = async function () {
+
+
+    if (this.index !== undefined || this.indexed === false) {
+        return this.index;
     }
 
-    if (self.indexURL || self.indexed || (typeof self.config.url === 'string' && self.config.url.endsWith(".gz"))) {
+    if (false !== this.indexed) {
 
-        return self.loadIndex()
-
-            .then(function (indexOrUndefined) {
-                if (indexOrUndefined) {
-                    self.index = indexOrUndefined;
-                    self.indexed = true;
-                } else {
-                    self.indexed = false;
-                }
-                return self.index;
-            })
-            .catch(function (error) {
-                self.indexed = false;
-                if (self.config.indexURL !== undefined) {
-                    self.config.browser.presentAlert("Index file not found.  Check track configuration", undefined)
-                }
-            });
-    } else {
-        self.indexed = false;
-        return Promise.resolve(undefined);
+        try {
+            const indexOrUndefined = await this.loadIndex()
+            if (indexOrUndefined) {
+                this.index = indexOrUndefined;
+                this.indexed = true;
+            } else {
+                this.indexed = false;
+            }
+            return this.index;
+        } catch (e) {
+            //If an explicit indexlURL was supplied rethrow the error.  Otherwise just mark the file as not index
+            if (this.config.url) {
+                throw e;
+            } else {
+                this.indexed = false;
+            }
+        }
     }
+    return undefined;
 };
 
 FeatureFileReader.prototype.loadFeaturesFromDataURI = async function () {

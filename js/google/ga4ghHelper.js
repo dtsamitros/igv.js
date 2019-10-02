@@ -24,6 +24,7 @@
  */
 
 import igvxhr from "../igvxhr.js";
+import google from "./googleUtils.js"
 
 function ga4ghGet(options) {
     var url = options.url + "/" + options.entity + "/" + options.entityId;
@@ -60,7 +61,7 @@ function ga4ghSearch(options) {
             if (pageToken) {
                 body.pageToken = pageToken;
             } else {
-                if (body.pageToken != undefined) delete body.pageToken;    // Remove previous page token, if any
+                if (body.pageToken !== undefined) delete body.pageToken;    // Remove previous page token, if any
             }
 
             var sendData = JSON.stringify(body);

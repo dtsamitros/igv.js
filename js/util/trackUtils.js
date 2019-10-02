@@ -116,13 +116,10 @@ function inferTrackTypes(config) {
 
     if ("file" === config.sourceType) {
         if (undefined === config.format) {
-            var path;
-            if (config.format) {
-                config.format = config.format.toLowerCase();
-                return;
-            }
-            path = isFilePath(config.url) ? config.url.name : config.url;
+            const path = isFilePath(config.url) ? config.url.name : config.url;
             config.format = inferFileFormat(path);
+        } else {
+            config.format = config.format.toLowerCase();
         }
     }
 
@@ -173,8 +170,10 @@ function inferFileFormat(fn) {
 
     // Special case -- UCSC refgene files
     if (fn.endsWith("refgene.txt.gz") ||
+        fn.endsWith("refgene.txt.bgz") ||
         fn.endsWith("refgene.txt") ||
-        fn.endsWith("refgene.sorted.txt.gz")) {
+        fn.endsWith("refgene.sorted.txt.gz") ||
+        fn.endsWith("refgene.sorted.txt.bgz")) {
         return "refgene";
     }
 
@@ -190,7 +189,7 @@ function inferFileFormat(fn) {
         fn = fn.substr(0, fn.length - 3);
     }
 
-    if (fn.endsWith(".txt") || fn.endsWith(".tab")) {
+    if (fn.endsWith(".txt") || fn.endsWith(".tab") || fn.endsWith(".bgz")) {
         fn = fn.substr(0, fn.length - 4);
     }
 
@@ -263,7 +262,7 @@ function translateDeprecatedTypes(config) {
  * Parse a locus string and return a range object.  Locus string is of the form chr:start-end.  End is optional
  *
  */
-function parseLocusString (string) {
+function parseLocusString(string) {
 
     const t1 = string.split(":");
     const t2 = t1[1].split("-");
@@ -283,5 +282,4 @@ function parseLocusString (string) {
 }
 
 
-
-export { knownFileExtensions, getFormat, inferTrackTypes, inferFileFormat, inferIndexPath, parseLocusString};
+export {knownFileExtensions, getFormat, inferTrackTypes, inferFileFormat, inferIndexPath, parseLocusString};

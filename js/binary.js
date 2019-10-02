@@ -103,11 +103,11 @@ BinaryParser.prototype.getLong = function () {
 
     var value = 0;
     if (this.littleEndian) {
-        for (var i = b.length - 1; i >= 0; i--) {
+        for (let i = b.length - 1; i >= 0; i--) {
             value = (value * 256) + b[i];
         }
     } else {
-        for (var i = 0; i < b.length; i++) {
+        for (let i = 0; i < b.length; i++) {
             value = (value * 256) + b[i];
         }
     }
@@ -121,9 +121,9 @@ BinaryParser.prototype.getString = function (len) {
 
     var s = "";
     var c;
-    while ((c = this.view.getUint8(this.position++)) != 0) {
+    while ((c = this.view.getUint8(this.position++)) !== 0) {
         s += String.fromCharCode(c);
-        if (len && s.length == len) break;
+        if (len && s.length === len) break;
     }
     return s;
 }

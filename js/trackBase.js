@@ -113,11 +113,10 @@ TrackBase.prototype.clickedFeatures = function (clickState) {
 
     const genomicLocation = clickState.genomicLocation;
 
-    // We need some tolerance around genomicLocation
-    const tolerance = 3 * clickState.referenceFrame.bpPerPixel;
+    // When zoomed out we need some tolerance around genomicLocation
+    const tolerance = (clickState.referenceFrame.bpPerPixel > 0.2) ? 3 * clickState.referenceFrame.bpPerPixel : 0;
     const ss = Math.floor(genomicLocation) - tolerance;
-    const ee = Math.ceil(genomicLocation) + tolerance;
-
+    const ee = Math.floor(genomicLocation) + tolerance;
     return (FeatureUtils.findOverlapping(features, ss, ee));
 };
 
@@ -134,8 +133,7 @@ TrackBase.prototype.setTrackProperties = function (properties) {
                 break;
             case "visibility":
                 //0 - hide, 1 - dense, 2 - full, 3 - pack, and 4 - squish
-                const viz = properties[key];
-                switch (viz) {
+                switch (properties[key]) {
                     case "2":
                     case "3":
                     case "pack":
@@ -159,6 +157,10 @@ TrackBase.prototype.setTrackProperties = function (properties) {
                 this.visibilityWindow = Number.parseInt(properties[key]);
         }
     }
+}
+
+TrackBase.prototype.getVisibilityWindow = function() {
+    return this.visibilityWindow;
 }
 
 /**

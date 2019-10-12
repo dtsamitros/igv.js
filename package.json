@@ -1,9 +1,14 @@
 {
   "name": "igv-data",
-  "version": "1.0.0",
+  "version": "0.0.1-alpha.2",
   "main": "dist/igv-data.cjs.js",
   "module": "dist/igv-data.esm.js",
   "browser": "dist/igv-data.umd.js",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dtsamitros/igv.js.git"
+  },
   "devDependencies": {
     "rollup": "^1.20.0",
     "rollup-plugin-commonjs": "^10.0.0",
@@ -14,6 +19,8 @@
     "dev": "rollup -c -w"
   },
   "files": [
-    "dist"
+    "dist",
+    "src",
+    "js"
   ]
 }

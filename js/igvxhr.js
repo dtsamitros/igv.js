@@ -462,7 +462,7 @@ function arrayBufferToString(arraybuffer, compression) {
         var inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
         plain = inflate.decompress();
     } else if (compression === BGZF) {
-        plain = new Uint8Array(unbgzf(arraybuffer));
+        plain = unbgzf(arraybuffer);
     } else {
         plain = new Uint8Array(arraybuffer);
     }
@@ -502,7 +502,7 @@ async function getGoogleAccessToken() {
     options.setPrompt('select_account');
     options.setScope(scope);
     oauthPromise = new Promise(function (resolve, reject) {
-        Alert.presentMessageWithCallback("Google Login required", function () {
+        Alert.presentAlert("Google Login required", function () {
             gapi.auth2.getAuthInstance().signIn(options)
                 .then(function (user) {
                     const authResponse = user.getAuthResponse();

@@ -1,6 +1,6 @@
 {
   "name": "igv-data",
-  "version": "0.0.1-alpha.2",
+  "version": "0.0.1-alpha.3",
   "main": "dist/igv-data.cjs.js",
   "module": "dist/igv-data.esm.js",
   "browser": "dist/igv-data.umd.js",

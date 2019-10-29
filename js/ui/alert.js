@@ -1,17 +1,12 @@
-// TODO -- eliminate dependence on getBrowser
-// import {getBrowser} from "../igv-create.js";
 
 const Alert = {
-    presentAlert: function (message) {
-        alert(message);
-        // getBrowser().presentAlert(message);
+    init($root) {
     },
 
-// TODO -- eliminate dependence on getBrowser
-    presentMessageWithCallback: function (message, fn) {
-        alert(message); fn();
-        // getBrowser().presentMessageWithCallback(message, fn);
-    }
+    presentAlert: function (message, callback) {
+        alert(message);
+        if (callback) callback();
+    },
 }
 
 export default Alert;

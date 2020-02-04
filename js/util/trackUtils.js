@@ -30,6 +30,7 @@ const knownFileExtensions = new Set([
 
     "narrowpeak",
     "broadpeak",
+    "regionpeak",
     "peaks",
     "bedgraph",
     "wig",
@@ -235,7 +236,9 @@ function translateDeprecatedTypes(config) {
         config.type = config.type || config.featureType;
         config.featureType = undefined;
     }
-    if ("bed" === config.type) {
+    if ("junctions" === config.type) {
+        config.type = "spliceJunctions"
+    } else if ("bed" === config.type) {
         config.type = "annotation";
         config.format = config.format || "bed";
     } else if ("annotations" === config.type) {

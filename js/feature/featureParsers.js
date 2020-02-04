@@ -61,6 +61,7 @@ const FeatureParser = function (format, decode, config) {
         switch (this.format) {
             case "narrowpeak":
             case "broadpeak":
+            case "regionpeak":
             case "peaks":
                 this.decode = decodePeak;
                 this.delimiter = /\s+/;
@@ -515,7 +516,13 @@ function decodeBed(tokens, ignore) {
         // }
         // feature.id = id ? id : tmp;
         // feature.name = name ? name : tmp;
-        feature.name = tokens[3];
+        if (tokens[3].indexOf(';') == -1) {
+            feature.name = tokens[3];
+        } else {
+            //parse gffTags
+            feature.attributes = parseAttributeString(tokens[3], '=');
+            feature.name = feature.attributes['Name'];
+        }
     }
 
     if (tokens.length > 4) {
@@ -942,6 +949,24 @@ function decodeGtexGWAS(tokens, ignore) {
     return feature
 }
 
+function parseAttributeString(attributeString, keyValueDelim) {
+    // parse 'attributes' string (see column 9 docs in https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md)
+    var attributes = {};
+    for (let kv of attributeString.split(';')) {
+        const t = kv.trim().split(keyValueDelim, 2)
+        if (t.length === 2) {
+            const key = t[0].trim();
+            let value = t[1].trim();
+            //Strip off quotes, if any
+            if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.substr(1, value.length - 2);
+            }
+            attributes[key] = value;
+        }
+    }
+    return attributes
+}
+
 /**
  * Decode a single gff record (1 line in file).  Aggregations such as gene models are constructed at a higher level.
  *      ctg123 . mRNA            1050  9000  .  +  .  ID=mRNA00001;Parent=gene00001
@@ -971,27 +996,19 @@ function decodeGFF(tokens, ignore) {
 
     // Find ID and Parent, or transcript_id
     var delim = ('gff3' === format) ? '=' : /\s+/;
-    var attributes = {};
-    for (let kv of attributeString.split(';')) {
-        const t = kv.trim().split(delim, 2)
-        if (t.length === 2) {
-            const key = t[0].trim();
-            let value = t[1].trim();
-
-            //Strip off quotes, if any
-            if (value.startsWith('"') && value.endsWith('"')) {
-                value = value.substr(1, value.length - 2);
-            }
-
-            const keyLower = key.toLowerCase()
-            if ("color" === keyLower || "colour" === keyLower) color = IGVColor.createColorString(t[1]);
-            else {
-                if ('gff3' === format) {
-                    value = decodeURIComponent(value)
-                }
-                attributes[key] = value;
-            }
+    var attributes = parseAttributeString(attributeString, delim);
+    for (let [key, value] of Object.entries(attributes)) {
+        const keyLower = key.toLowerCase()
+        if ("color" === keyLower || "colour" === keyLower) {
+            color = IGVColor.createColorString(value);
         }
+        else if ('gff3' === format)
+            try {
+                attributes[key] =  unescape(value);
+            } catch (e) {
+                attributes[key] = value;   // Invalid
+                console.error(`Malformed gff3 attibute value: ${value}`);
+            }
     }
 
     // Find name (label) property
@@ -1185,7 +1202,7 @@ function decodeAed(tokens, ignore) {
 
     var feature = new AedFeature(this.aed, tokens);
 
-    if (!feature.chr || !feature.start || !feature.end) {
+    if (!feature.chr || (!feature.start && feature.start !== 0) || !feature.end) {
         console.log('Cannot parse feature: ' + tokens.join(','));
         return undefined;
     }

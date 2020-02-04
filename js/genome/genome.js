@@ -35,11 +35,12 @@ let KNOWN_GENOMES;
 
 const GenomeUtils = {
 
-    loadGenome: async function (config) {
+    loadGenome: async function (options) {
 
-        const cytobandUrl = config.cytobandURL;
-        const aliasURL = config.aliasURL;
-        const sequence = new FastaSequence(config);
+        const cytobandUrl = options.cytobandURL;
+        const aliasURL = options.aliasURL;
+        const sequence = new FastaSequence(options);
+
 
         await sequence.init()
 
@@ -53,7 +54,7 @@ const GenomeUtils = {
             aliases = await loadAliases(aliasURL, sequence.config);
         }
 
-        return new Genome(config, sequence, cytobands, aliases);
+        return new Genome(options, sequence, cytobands, aliases);
 
     },
 
@@ -87,7 +88,7 @@ const GenomeUtils = {
         }
     },
 
-    isWholeGenomeView:  function (referenceFrame) {
+    isWholeGenomeView: function (referenceFrame) {
         let chromosomeName = referenceFrame.chrName.toLowerCase();
         return 'all' === chromosomeName;
     }
@@ -103,10 +104,11 @@ var Genome = function (config, sequence, ideograms, aliases) {
     this.chromosomes = sequence.chromosomes;  // An object (functions as a dictionary)
     this.ideograms = ideograms;
 
-    if (Object.keys(sequence.chromosomes).length > 1) {
+    this.wholeGenomeView = config.wholeGenomeView === undefined || config.wholeGenomeView;
+    if (this.wholeGenomeView && Object.keys(sequence.chromosomes).length > 1) {
         constructWG(this, config);
     } else {
-        this.wgChromosomeNames = [sequence.chromosomeNames[0]];
+        this.wgChromosomeNames = sequence.chromosomeNames;
     }
 
     /**
@@ -157,6 +159,10 @@ var Genome = function (config, sequence, ideograms, aliases) {
 
 }
 
+Genome.prototype.showWholeGenomeView = function () {
+    return this.config.wholeGenomeView !== false;
+}
+
 Genome.prototype.toJSON = function () {
 
     return Object.assign({}, this.config, {tracks: undefined});
@@ -168,7 +174,7 @@ Genome.prototype.getInitialLocus = function () {
 }
 
 Genome.prototype.getHomeChromosomeName = function () {
-    if (this.chromosomes.hasOwnProperty("all")) {
+    if (this.showWholeGenomeView() && this.chromosomes.hasOwnProperty("all")) {
         return "all";
     } else {
         const chromosome = this.chromosomes[this.chromosomeNames[0]];

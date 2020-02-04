@@ -102,7 +102,13 @@ FeatureFileReader.prototype.readHeader = async function () {
         } else {
             let index;
             if (this.config.indexURL || this.config.indexed) {
-                index = await this.getIndex()
+                index = await this.getIndex();
+
+                if (!index) {
+                    // Note - it should be impossible to get here
+                    const iurl = this.config.indexURL || this.config.url;
+                    throw new Error("Unable to load index: " + iurl);
+                }
 
                 // Load the file header (not HTTP header) for an indexed file.
                 let maxSize = "vcf" === this.config.format ? 65000 : 1000
@@ -153,28 +159,6 @@ FeatureFileReader.prototype.getParser = function (format, decode, config) {
 
 };
 
-
-/**
- * Return a Promise for the async loaded index
- */
-FeatureFileReader.prototype.loadIndex = async function () {
-
-    let idxFile = this.config.indexURL;
-    if (this.filename.endsWith('.gz') || this.filename.endsWith('.bgz')) {
-
-        if (!idxFile) {
-            idxFile = this.config.url + '.tbi';
-        }
-        return loadBamIndex(idxFile, this.config, true, this.genome);
-
-    } else {
-
-        if (!idxFile) {
-            idxFile = this.config.url + '.idx';
-        }
-        return loadTribbleIndex(idxFile, this.config, this.genome);
-    }
-};
 
 FeatureFileReader.prototype.loadFeaturesNoIndex = async function () {
 
@@ -279,33 +263,50 @@ FeatureFileReader.prototype.loadFeaturesWithIndex = async function (chr, start, 
 
 FeatureFileReader.prototype.getIndex = async function () {
 
-
     if (this.index !== undefined || this.indexed === false) {
         return this.index;
     }
+    const indexOrUndefined = await this.loadIndex()
+    if (indexOrUndefined) {
+        this.index = indexOrUndefined;
+        this.indexed = true;
+    } else {
+        this.indexed = false;
+    }
+    return this.index;
+};
 
-    if (false !== this.indexed) {
+/**
+ * Return a Promise for the async loaded index
+ */
+FeatureFileReader.prototype.loadIndex = async function () {
 
-        try {
-            const indexOrUndefined = await this.loadIndex()
-            if (indexOrUndefined) {
-                this.index = indexOrUndefined;
-                this.indexed = true;
-            } else {
-                this.indexed = false;
+    let idxFile = this.config.indexURL;
+    try {
+        let index;
+        if (this.filename.endsWith('.gz') || this.filename.endsWith('.bgz')) {
+            if (!idxFile) {
+                idxFile = this.config.url + '.tbi';
             }
-            return this.index;
-        } catch (e) {
-            //If an explicit indexlURL was supplied rethrow the error.  Otherwise just mark the file as not index
-            if (this.config.url) {
-                throw e;
-            } else {
-                this.indexed = false;
+            index = await loadBamIndex(idxFile, this.config, true, this.genome);
+
+        } else {
+            if (!idxFile) {
+                idxFile = this.config.url + '.idx';
             }
+            index = await loadTribbleIndex(idxFile, this.config, this.genome);
+        }
+        return index;
+    } catch (e) {
+        if (this.config.indexURL || this.config.indexed) {
+            throw e;
+        } else {
+            this.indexed = false;
+            console.error(e);
         }
     }
-    return undefined;
 };
+
 
 FeatureFileReader.prototype.loadFeaturesFromDataURI = async function () {
 

@@ -45,6 +45,7 @@ const TrackBase = function (config, browser) {
     this.browser = browser;
     this.url = config.url;
     this.type = config.type;
+    this.description = config.description;
     this.supportHiDPI = config.supportHiDPI === undefined ? true : config.supportHiDPI;
 
     config.name = config.name || config.label;   // synonym for name, label is deprecated
@@ -69,7 +70,7 @@ const TrackBase = function (config, browser) {
     this.removable = config.removable === undefined ? true : config.removable;      // Defaults to true
 
     this.height = config.height || 100;
-    this.autoHeight = config.autoHeight === undefined ? (config.height === undefined) : config.autoHeight;
+    this.autoHeight = config.autoHeight;
     this.minHeight = config.minHeight || Math.min(25, this.height);
     this.maxHeight = config.maxHeight || Math.max(1000, this.height);
 
@@ -176,10 +177,12 @@ TrackBase.extractPopupData = function (feature, genomeId) {
     let alleles, alleleFreqs;
     for (var property in feature) {
 
-        if (feature.hasOwnProperty(property) && !filteredProperties.has(property) &&
+        if (feature.hasOwnProperty(property) &&
+            !filteredProperties.has(property) &&
             isSimpleType(feature[property])) {
-
-            data.push({name: property, value: feature[property]});
+            let value = feature[property];
+            if("start" === property) value = value + 1;
+            data.push({name: property, value: value});
 
             if (property === "alleles") {
                 alleles = feature[property];

@@ -37,6 +37,8 @@ function runHtsgetTests() {
     //         });
     // });
 
+   /*
+    // Commented oout because the public data url used in the test no longer seems to be working.
     QUnit.test('Load Urls - EBI', function (assert) {
         var done = assert.async();
 
@@ -53,7 +55,7 @@ function runHtsgetTests() {
             assert.ok(alignmentContainer.alignments.length > 0);
             done();
         });
-    });
+    });*/
 }
 
 export default runHtsgetTests;

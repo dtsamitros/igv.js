@@ -65,6 +65,47 @@ function runBedTests() {
     //         })
     // })
 
+  QUnit.test("Empty lines", async function (assert) {
+
+    ///Users/jrobinso/Dropbox/projects/igv.js/test/data/bed/gwasCatalog.test.txt
+    const done = assert.async();
+
+    const config = {
+      format: "bed",
+      url: "data/bed/basic_feature_3_columns_empty_lines.bed",
+    }
+
+    const reader = new FeatureSource(config, genome);
+    const features = await reader.getFeatures("chr1", 0, 128756129)
+    assert.ok(features);
+    assert.equal(features.length, 6);
+
+    // now query with
+    done();
+
+  })
+
+  QUnit.test("Empty lines - gzipped", async function (assert) {
+
+    ///Users/jrobinso/Dropbox/projects/igv.js/test/data/bed/gwasCatalog.test.txt
+    const done = assert.async();
+
+    const config = {
+      format: "bed",
+      url: "data/bed/basic_feature_3_columns_empty_lines.bed.gz",
+      indexed: false,
+    }
+
+    const reader = new FeatureSource(config, genome);
+    const features = await reader.getFeatures("chr1", 0, 128756129)
+    assert.ok(features);
+    assert.equal(features.length, 6);
+
+    // now query with
+    done();
+
+  })
+
     QUnit.test("Chr aliasing", async function (assert) {
 
         ///Users/jrobinso/Dropbox/projects/igv.js/test/data/bed/gwasCatalog.test.txt

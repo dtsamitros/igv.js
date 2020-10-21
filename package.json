@@ -1,6 +1,6 @@
 {
   "name": "igv-data",
-  "version": "0.0.1-alpha.6",
+  "version": "0.0.1-alpha.6.1",
   "main": "dist/igv-data.cjs.js",
   "module": "dist/igv-data.esm.js",
   "browser": "dist/igv-data.umd.js",
@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "dev": "rollup -c -w"
+    "dev": "rollup -c -w",
+    "http-server": "npx http-server ."
   },
   "files": [
     "dist",

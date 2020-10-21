@@ -167,7 +167,7 @@ FeatureParser.prototype.parseHeader = function (data) {
 
     dataWrapper = getDataWrapper(data);
 
-    while (line = dataWrapper.nextLine()) {
+    while ((line = dataWrapper.nextLine()) !== undefined) {
         if (line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
             if (line.startsWith("track") || line.startsWith("#track")) {
                 let h = parseTrackLine(line);
@@ -279,13 +279,13 @@ FeatureParser.prototype.parseFeatures = function (data) {
 
     i = 0;
 
-    while (line = nextLine()) {
+    while ((line = nextLine()) !== undefined) {
 
         i++;
 
         if (i <= this.skipRows) continue;
 
-        if (line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
+        if (!line || line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
             continue;
         } else if (format === "wig" && line.startsWith("fixedStep")) {
             wig = parseFixedStep(line);

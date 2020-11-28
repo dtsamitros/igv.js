@@ -1,18 +1,19 @@
 {
-  "name": "igv",
+  "name": "igv-data",
   "version": "2.7.2",
-  "description": "Embeddable genomic visualization component based on the Integrative Genomics Viewer",
-  "main": "dist/igv.esm.js",
-  "browser": "dist/igv.js",
-  "module": "dist/igv.esm.js",
+  "description": "Genomic data parser component based on the Integrative Genomics Viewer",
+  "main": "dist/igv-data.cjs.js",
+  "module": "dist/igv-data.esm.js",
+  "browser": "dist/igv-data.umd.js",
   "files": [
-    "embed.html",
-    "dist/**"
+    "dist/**",
+    "js",
+    "src"
   ],
   "scripts": {
-    "build": "node scripts/updateVersion.js && node scripts/generateEmbedCss.js && npx rollup --config",
-    "prepack": "npm run build",
-    "test": "mocha -u tdd -r esm"
+    "build": "rollup --config rollup.config.js",
+    "build:watch": "npm run build -- --watch",
+    "test": "mocha --ui tdd --require esm"
   },
   "author": {
     "name": "Jim Robinson"
@@ -35,7 +36,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/igvteam/igv.js.git"
+    "url": "git+https://github.com/dtsamitros/igv.js.git"
   },
   "browserslist": "> 1%, not dead",
   "devDependencies": {
@@ -60,9 +61,5 @@
     "rollup-plugin-terser": "^7.0.2",
     "w3c-xmlhttprequest": "^3.0.0",
     "xmldom": "^0.4.0"
-  },
-  "dependencies": {
-    "igv-ui": "github:igvteam/igv-ui#23d667e6",
-    "igv-utils": "github:igvteam/igv-utils#0e7dbafb"
   }
 }

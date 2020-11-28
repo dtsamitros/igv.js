@@ -1,16 +1,24 @@
+/**
+ * Build configuration
+ */
+
 import resolve from 'rollup-plugin-node-resolve';
 import babel from 'rollup-plugin-babel';
 import strip from 'rollup-plugin-strip';
 import commonjs from '@rollup/plugin-commonjs';
-import {terser} from "rollup-plugin-terser"
+import { terser } from 'rollup-plugin-terser'
+
+import pkg from './package.json';
 
 export default [
 
     {
-        input: 'js/index.js',
+        input: 'src/main.js',
         output: [
-            {file: 'dist/igv.esm.js', format: 'es'},
-            {file: 'dist/igv.esm.min.js', format: 'es', sourcemap: true, plugins: [terser()]}
+            { file: pkg.main, format: 'cjs' },
+            { file: pkg.module, format: 'es' },
+            { file: pkg.main.replace(/\.js$/, '.min.js'), format: 'cjs', sourcemap: true, plugins: [terser()] },
+            { file: pkg.module.replace(/\.js$/, '.min.js'), format: 'es', sourcemap: true, plugins: [terser()] }
         ],
         plugins: [
             strip({
@@ -21,10 +29,10 @@ export default [
     },
 
     {
-        input: 'js/index.js',
+        input: 'src/main.js',
         output: [
-            {file: 'dist/igv.js', format: 'umd', name: "igv"},
-            {file: 'dist/igv.min.js', format: 'umd', name: "igv", sourcemap: true, plugins: [terser()]},
+            { file: pkg.browser, format: 'umd', name: 'igvData' },
+            { file: pkg.browser.replace(/\.js$/, '.min.js'), format: 'umd', name: 'igvData', sourcemap: true, plugins: [terser()] },
         ],
         plugins: [
             strip({
@@ -35,5 +43,5 @@ export default [
             resolve(),
             babel()
         ]
-    }
+    },
 ];

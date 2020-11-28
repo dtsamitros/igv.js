@@ -96,6 +96,10 @@ class TDFSource {
         return features;
     }
 
+    async getHeader() {
+        return this.reader.readHeader();
+    }
+
     supportsWholeGenome() {
         return false;
     }

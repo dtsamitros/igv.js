@@ -1,6 +1,6 @@
 {
   "name": "igv-data",
-  "version": "2.7.2",
+  "version": "2.7.2-1",
   "description": "Genomic data parser component based on the Integrative Genomics Viewer",
   "main": "dist/igv-data.cjs.js",
   "module": "dist/igv-data.esm.js",
